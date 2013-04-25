@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="plugin.video.geekandsundry"
+       name="Geek &amp; Sundry"
+       version="0.0.1"
+       provider-name="Rick Phillips (ruuk)">
+  <requires>
+    <import addon="xbmc.python" version="2.0"/>
+   </requires>
+
+  <extension point="xbmc.python.pluginsource"
+            library="geekandsundry.py">
+        <provides>video</provides>
+  </extension>
+  <extension point="xbmc.addon.metadata">
+    <summary lang="en">Geek &amp; Sundry</summary>
+    <description>Geek &amp; Sundry</description>
+	<platform>all</platform>
+  </extension>
+</addon>
