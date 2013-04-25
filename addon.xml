@@ -12,8 +12,8 @@
         <provides>video</provides>
   </extension>
   <extension point="xbmc.addon.metadata">
-    <summary lang="en">Geek &amp; Sundry</summary>
-    <description>Geek &amp; Sundry</description>
+    <summary lang="en">Videos of geekandsundry.com</summary>
+    <description>Geek &amp; Sundry videos such as The Guild and Space Janitors</description>
 	<platform>all</platform>
   </extension>
 </addon>

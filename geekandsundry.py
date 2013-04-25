@@ -15,14 +15,6 @@ def convertHTMLCodes(html):
 		pass
 	return html
 
-def addLink(name,url,iconimage,tot=0,contextMenu=None,ltype='image'):
-	#u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&name="+urllib.quote_plus(name)
-	liz=xbmcgui.ListItem(name, iconImage="DefaultImage.png", thumbnailImage=iconimage)
-	liz.setInfo( type=ltype, infoLabels={ "Title": name } )
-	liz.setProperty( "sharing","handled" )
-	if contextMenu: liz.addContextMenuItems(contextMenu)
-	return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=url,listitem=liz,isFolder=False,totalItems=tot)
-
 def addDir(name,url,mode,iconimage,page=1,tot=0,playable=False,desc=''):
 	name = convertHTMLCodes(name)
 	u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)+"&page="+str(page)+"&name="+urllib.quote_plus(name.encode('ascii','replace'))
