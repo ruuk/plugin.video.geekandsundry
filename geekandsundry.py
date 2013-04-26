@@ -1,4 +1,11 @@
-import sys, urllib, urllib2, re, htmlentitydefs, xbmcgui, xbmcplugin
+import os, sys, urllib, urllib2, re, htmlentitydefs, md5, time
+import xbmc, xbmcgui, xbmcplugin, xbmcaddon
+
+CACHE_PATH = xbmc.translatePath(os.path.join(xbmcaddon.Addon('plugin.video.geekandsundry').getAddonInfo('profile'),'cache'))
+if not os.path.exists(CACHE_PATH): os.makedirs(CACHE_PATH)
+
+def LOG(msg):
+	print 'plugin.video.geekandsundry: %s' % msg 
 
 charCodeFilter = re.compile('&#(\d{1,5});',re.I)
 charNameFilter = re.compile('&(\w+?);')
@@ -43,7 +50,11 @@ def get_params():
 	return param
 
 def showMain():
-	html = urllib2.urlopen('http://www.geekandsundry.com/').read()
+	url = 'http://www.geekandsundry.com/'
+	html = getCachedHTML('main',url)
+	if not html:
+		html = urllib2.urlopen(url).read()
+		cacheHTML('main', url, html)
 	nhtml = html.split('<div class="new-shows">',1)[-1].split('<div class="clear">',1)[0]
 	ohtml = html.split('<div class="old-shows">',1)[-1].split('<div class="clear">',1)[0]
 	items = re.finditer("(?is)<a href='(?P<url>[^\"'>]+)'>.+?<img src=\"(?P<logo>[^\"'>]+)\" alt=\"(?P<title>[^\"]+)\".+?<p>(?P<desc>[^<]+)</p>.+?</a>",nhtml+ohtml)
@@ -51,13 +62,44 @@ def showMain():
 		idict = i.groupdict()
 		addDir(idict.get('title',''),'http:' + idict.get('url',''),'show',idict.get('logo',''),desc=idict.get('desc'))
 
-def showShow(url):
+def showSeason(url):
 	if not url: return False
-	html = urllib2.urlopen(url).read()
+	section,url = url.split(':',1)
+	html = getCachedHTML('show',url)
+	if not html:
+		html = urllib2.urlopen(url).read()
+		cacheHTML('show', url, html)
 	items = re.finditer("(?is)<li class='episode-item-(?P<section>[^']+)'>\s+?<a href='(?P<url>[^']+)'.+?<img src=\"(?P<thumb>[^\"]+)\".+?<h2>(?P<title>[^<]+)</h2>.+?</li>",html)
 	for i in items:
 		idict = i.groupdict()
-		addDir(idict.get('title',''),url + idict.get('url',''),'video',idict.get('thumb',''),playable=True)
+		currSection = idict.get('section','')
+		if currSection == section:
+			addDir(idict.get('title',''),url + idict.get('url',''),'video',idict.get('thumb',''),playable=True)
+	return True
+
+def showShow(url):
+	if not url: return False
+	html = getCachedHTML('show',url)
+	if not html:
+		html = urllib2.urlopen(url).read()
+		cacheHTML('show', url, html)
+	items = re.finditer("(?is)<li class='episode-item-(?P<section>[^']+)'>\s+?<a href='(?P<url>[^']+)'.+?<img src=\"(?P<thumb>[^\"]+)\".+?<h2>(?P<title>[^<]+)</h2>.+?</li>",html)
+	sections = {}
+	for i in items:
+		idict = i.groupdict()
+		section = idict.get('section','')
+		if not section in sections:
+			sections[section] = 1
+			if section.startswith('episode-') or section.startswith('extras-'):
+				display = section.split('-',1)[-1]
+				num = re.search('\d+$',display)
+				if num:
+					display = re.sub('\d+$','',display) + ' ' + num.group(0)
+				if section.startswith('extras-'): display += ' - Extras '
+			else:
+				display = section.replace('-',' ')
+			display = display.title()
+			addDir(display,section + ':' + url,'season',idict.get('thumb',''))
 	return True
 
 def showVideo(url):
@@ -70,6 +112,29 @@ def showVideo(url):
 	xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=listitem)
 	return True
 
+def cacheHTML(prefix,url,html):
+	fname = prefix + '.' + md5.md5(url).hexdigest()
+	with open(os.path.join(CACHE_PATH,fname),'w') as f:
+		f.write(str(time.time()) + '\n' + html)
+		
+def getCachedHTML(prefix,url):
+	fname = prefix + '.' + md5.md5(url).hexdigest()
+	path = os.path.join(CACHE_PATH,fname)
+	if not os.path.exists(path): return None
+	with open(path,'r') as f:
+		data = f.read()
+		last, html = data.split('\n',1)
+	try:
+		if time.time() - float(last) > 3600:
+			LOG('Cached file expired. Getting new html...')
+			return None
+	except:
+		LOG('Failed to process file cache time')
+		return None
+	
+	LOG('Using cached HTML')
+	return html
+
 def doPlugin():
 	success = True
 	cache = True
@@ -81,6 +146,8 @@ def doPlugin():
 	url = urllib.unquote_plus(params.get('url',''))
 	if not mode:
 		showMain()
+	elif mode == 'season':
+		success = showSeason(url)
 	elif mode == 'show':
 		success = showShow(url)
 	elif mode == 'video':
