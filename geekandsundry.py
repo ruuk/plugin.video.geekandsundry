@@ -1,8 +1,11 @@
 import os, sys, urllib, urllib2, re, htmlentitydefs, md5, time
 import xbmc, xbmcgui, xbmcplugin, xbmcaddon
-
-CACHE_PATH = xbmc.translatePath(os.path.join(xbmcaddon.Addon('plugin.video.geekandsundry').getAddonInfo('profile'),'cache'))
+ADDON = xbmcaddon.Addon(id='plugin.video.geekandsundry')
+CACHE_PATH = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile'),'cache'))
+FANART_PATH = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile'),'fanart'))
 if not os.path.exists(CACHE_PATH): os.makedirs(CACHE_PATH)
+if not os.path.exists(FANART_PATH): os.makedirs(FANART_PATH)
+plugin_fanart = os.path.join(xbmc.translatePath(ADDON.getAddonInfo('path')),'fanart.jpg')
 
 def LOG(msg):
 	print 'plugin.video.geekandsundry: %s' % msg 
@@ -22,12 +25,16 @@ def convertHTMLCodes(html):
 		pass
 	return html
 
-def addDir(name,url,mode,iconimage,page=1,tot=0,playable=False,desc=''):
+def addDir(name,url,mode,iconimage,page=1,tot=0,playable=False,desc='',episode='',fanart=None,context=None,info=None):
 	name = convertHTMLCodes(name)
-	u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)+"&page="+str(page)+"&name="+urllib.quote_plus(name.encode('ascii','replace'))
+	u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)+"&page="+str(page)
 	liz=xbmcgui.ListItem(name, 'test',iconImage="DefaultFolder.png", thumbnailImage=iconimage)
-	liz.setInfo( type="Video", infoLabels={"Title": name} )
+	infolabels={"Title": name,"Episode":episode}
+	if info: infolabels.update(info)
+	liz.setInfo( type="Video", infoLabels=infolabels )
 	if playable: liz.setProperty('IsPlayable', 'true')
+	liz.setProperty('fanart_image',fanart or plugin_fanart)
+	if context: liz.addContextMenuItems(context)
 	return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz,isFolder=not playable,totalItems=tot)
 
 def get_params():
@@ -58,9 +65,17 @@ def showMain():
 	nhtml = html.split('<div class="new-shows">',1)[-1].split('<div class="clear">',1)[0]
 	ohtml = html.split('<div class="old-shows">',1)[-1].split('<div class="clear">',1)[0]
 	items = re.finditer("(?is)<a href='(?P<url>[^\"'>]+)'>.+?<img src=\"(?P<logo>[^\"'>]+)\" alt=\"(?P<title>[^\"]+)\".+?<p>(?P<desc>[^<]+)</p>.+?</a>",nhtml+ohtml)
+	context = [('Use Current View For Main','RunScript(plugin.video.geekandsundry,viewmode_shows)')]
 	for i in items:
 		idict = i.groupdict()
-		addDir(idict.get('title',''),'http:' + idict.get('url',''),'show',idict.get('logo',''),desc=idict.get('desc'))
+		url = 'http:' + idict.get('url','')
+		fanart = createFanart(None,url)
+		addDir(idict.get('title',''),url,'show',idict.get('logo',''),fanart=fanart,context=context,info={"Plot":idict.get('desc')})
+	xbmcplugin.setContent(int(sys.argv[1]), 'movies')
+	cmd = "Container.SetViewMode(%s)" % (ADDON.getSetting('viewmode_shows') or '515')
+	print repr(ADDON.getSetting('viewmode_shows'))
+	print cmd
+	xbmc.executebuiltin(cmd)
 
 def showSeason(url):
 	if not url: return False
@@ -69,12 +84,21 @@ def showSeason(url):
 	if not html:
 		html = urllib2.urlopen(url).read()
 		cacheHTML('show', url, html)
-	items = re.finditer("(?is)<li class='episode-item-(?P<section>[^']+)'>\s+?<a href='(?P<url>[^']+)'.+?<img src=\"(?P<thumb>[^\"]+)\".+?<h2>(?P<title>[^<]+)</h2>.+?</li>",html)
+	items = re.finditer("(?is)<li class='episode-item-(?P<section>[^']+)'>\s+?<a href='(?P<url>[^']+)'.+?<img src=\"(?P<thumb>[^\"]*)\".+?<h2>(?P<title>[^<]+)</h2>.+?</li>",html)
+	try:
+		fanart = 'http://www.geekandsundry.com' + re.search('<div id="show-banner"[^>]*url\(\'(?P<url>[^\']*)\'',html).group(1)
+		fanart = createFanart(fanart,url)
+	except:
+		fanart = None
+	context = [('Use Current View For Episodes','RunScript(plugin.video.geekandsundry,viewmode_episodes)')]
 	for i in items:
 		idict = i.groupdict()
 		currSection = idict.get('section','')
 		if currSection == section:
-			addDir(idict.get('title',''),url + idict.get('url',''),'video',idict.get('thumb',''),playable=True)
+			ep = extractEpisode(idict.get('title',''),idict.get('thumb',''))
+			addDir(idict.get('title',''),url + idict.get('url',''),'video',idict.get('thumb',''),playable=True,episode=ep,fanart=fanart,context=context)
+	xbmcplugin.setContent(int(sys.argv[1]), 'episodes')
+	xbmc.executebuiltin("Container.SetViewMode(%s)" % ADDON.getSetting('viewmode_episodes'))
 	return True
 
 def showShow(url):
@@ -83,8 +107,14 @@ def showShow(url):
 	if not html:
 		html = urllib2.urlopen(url).read()
 		cacheHTML('show', url, html)
-	items = re.finditer("(?is)<li class='episode-item-(?P<section>[^']+)'>\s+?<a href='(?P<url>[^']+)'.+?<img src=\"(?P<thumb>[^\"]+)\".+?<h2>(?P<title>[^<]+)</h2>.+?</li>",html)
+	items = re.finditer("(?is)<li class='episode-item-(?P<section>[^']+)'>\s+?<a href='(?P<url>[^']+)'.+?<img src=\"(?P<thumb>[^\"]*)\".+?<h2>(?P<title>[^<]+)</h2>.+?</li>",html)
+	try:
+		fanart = 'http://www.geekandsundry.com' + re.search('<div id="show-banner"[^>]*url\(\'(?P<url>[^\']*)\'',html).group(1)
+		fanart = createFanart(fanart,url)
+	except:
+		fanart = None
 	sections = {}
+	context = [('Use Current View For Seasons','RunScript(plugin.video.geekandsundry,viewmode_seasons)')]
 	for i in items:
 		idict = i.groupdict()
 		section = idict.get('section','')
@@ -99,7 +129,9 @@ def showShow(url):
 			else:
 				display = section.replace('-',' ')
 			display = display.title()
-			addDir(display,section + ':' + url,'season',idict.get('thumb',''))
+			addDir(display,section + ':' + url,'season',idict.get('thumb',''),fanart=fanart,context=context)
+	xbmcplugin.setContent(int(sys.argv[1]), 'tvshows')
+	xbmc.executebuiltin("Container.SetViewMode(%s)" % ADDON.getSetting('viewmode_seasons'))
 	return True
 
 def showVideo(url):
@@ -111,6 +143,31 @@ def showVideo(url):
 	listitem.setInfo(type='Video',infoLabels={"Title": 'Video'})
 	xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=listitem)
 	return True
+
+def createFanart(url,page_url):
+	outname = page_url.split('://',1)[-1].split('.')[0] + '.png'
+	outfile = os.path.join(FANART_PATH,outname)
+	if os.path.exists(outfile): return outfile
+	if not url: return ''
+	workfile = os.path.join(CACHE_PATH,'work.gif')
+	urllib.urlretrieve(url, workfile)
+	try:
+		from PIL import Image,ImageOps # @UnresolvedImport
+		img = Image.open(workfile).convert('RGB')
+		h = img.histogram()
+		rgb = tuple([b.index(max(b)) for b in [ h[i*256:(i+1)*256] for i in range(3) ]])
+		img2 = ImageOps.expand(img,border=(0,120),fill=rgb)
+		img2.save(outfile,'PNG')
+		return outfile
+	except:
+		return url
+	
+def extractEpisode(title,url):
+	test = re.search('(?i)ep(\d+)',title)
+	if not test: test = re.search('(?i)_E(\d+)\.',url)
+	if not test: test = re.search('[_\.]\d*(\d\d)\.',url)
+	if test: return test.group(1)
+	return ''
 
 def cacheHTML(prefix,url,html):
 	fname = prefix + '.' + md5.md5(url).hexdigest()
@@ -157,4 +214,9 @@ def doPlugin():
 	if mode != 9999: xbmcplugin.endOfDirectory(int(sys.argv[1]),succeeded=success,updateListing=update_dir,cacheToDisc=cache)
 
 if __name__ == '__main__':
-	doPlugin()
+	arg1 = sys.argv[1]
+	if arg1.startswith('viewmode'):
+		ADDON.setSetting(arg1,xbmc.getInfoLabel('Container.Viewmode'))
+		print repr(ADDON.getSetting(arg1))
+	else:
+		doPlugin()
