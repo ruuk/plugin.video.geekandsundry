@@ -1,11 +1,14 @@
 Geek & Sundry Changelog
 
-Current Version : 0.0.2
+Current Version : 0.0.3
 
 ** 0.0.3 ***
 
 Fixed a bug with episodes with no thumbnail not displaying
- 
+Added fanart.jpg
+Added fanart generation for shows
+Added episode number when possible
+Added descriptions for shows 
 
 ** 0.0.2 ***
 

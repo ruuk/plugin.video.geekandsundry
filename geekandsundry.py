@@ -1,11 +1,14 @@
 import os, sys, urllib, urllib2, re, htmlentitydefs, md5, time
 import xbmc, xbmcgui, xbmcplugin, xbmcaddon
 ADDON = xbmcaddon.Addon(id='plugin.video.geekandsundry')
+__version__ = ADDON.getAddonInfo('version')
+__language__ = ADDON.getLocalizedString
 CACHE_PATH = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile'),'cache'))
 FANART_PATH = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile'),'fanart'))
 if not os.path.exists(CACHE_PATH): os.makedirs(CACHE_PATH)
 if not os.path.exists(FANART_PATH): os.makedirs(FANART_PATH)
 plugin_fanart = os.path.join(xbmc.translatePath(ADDON.getAddonInfo('path')),'fanart.jpg')
+del ADDON
 
 def LOG(msg):
 	print 'plugin.video.geekandsundry: %s' % msg 
@@ -64,18 +67,20 @@ def showMain():
 		cacheHTML('main', url, html)
 	nhtml = html.split('<div class="new-shows">',1)[-1].split('<div class="clear">',1)[0]
 	ohtml = html.split('<div class="old-shows">',1)[-1].split('<div class="clear">',1)[0]
-	items = re.finditer("(?is)<a href='(?P<url>[^\"'>]+)'>.+?<img src=\"(?P<logo>[^\"'>]+)\" alt=\"(?P<title>[^\"]+)\".+?<p>(?P<desc>[^<]+)</p>.+?</a>",nhtml+ohtml)
-	context = [('Use Current View For Main','RunScript(plugin.video.geekandsundry,viewmode_shows)')]
+	items = re.finditer("(?is)<a href='(?P<url>[^\"'>]+)'>.+?<li class=\"[^\"]*show-(?P<status>[\w-]+)\">.+?<img src=\"(?P<logo>[^\"'>]+)\" alt=\"(?P<title>[^\"]+)\".+?<p>(?P<desc>[^<]+)</p>.+?</a>",nhtml+ohtml)
 	for i in items:
 		idict = i.groupdict()
 		url = 'http:' + idict.get('url','')
 		fanart = createFanart(None,url)
-		addDir(idict.get('title',''),url,'show',idict.get('logo',''),fanart=fanart,context=context,info={"Plot":idict.get('desc')})
-	xbmcplugin.setContent(int(sys.argv[1]), 'movies')
-	cmd = "Container.SetViewMode(%s)" % (ADDON.getSetting('viewmode_shows') or '515')
-	print repr(ADDON.getSetting('viewmode_shows'))
-	print cmd
-	xbmc.executebuiltin(cmd)
+		status = idict.get('status').replace('-',' ').title()
+		statusdisp = status
+		if 'Air' in status:
+			statusdisp = '[COLOR green]{0}[/COLOR]'.format(status)
+		elif 'Hiatus' in status:
+			statusdisp = '[COLOR FFAAAA00]{0}[/COLOR]'.format(status)
+		plot = 'Status: [B]{0}[/B][CR][CR]{1}'.format(statusdisp,idict.get('desc'))
+		addDir(idict.get('title',''),url,'show',idict.get('logo',''),fanart=fanart,info={"Plot":plot,'status':status})
+	xbmcplugin.setContent(int(sys.argv[1]), 'tvshows')
 
 def showSeason(url):
 	if not url: return False
@@ -90,15 +95,13 @@ def showSeason(url):
 		fanart = createFanart(fanart,url)
 	except:
 		fanart = None
-	context = [('Use Current View For Episodes','RunScript(plugin.video.geekandsundry,viewmode_episodes)')]
 	for i in items:
 		idict = i.groupdict()
 		currSection = idict.get('section','')
 		if currSection == section:
 			ep = extractEpisode(idict.get('title',''),idict.get('thumb',''))
-			addDir(idict.get('title',''),url + idict.get('url',''),'video',idict.get('thumb',''),playable=True,episode=ep,fanart=fanart,context=context)
+			addDir(idict.get('title',''),url + idict.get('url',''),'video',idict.get('thumb',''),playable=True,episode=ep,fanart=fanart)
 	xbmcplugin.setContent(int(sys.argv[1]), 'episodes')
-	xbmc.executebuiltin("Container.SetViewMode(%s)" % ADDON.getSetting('viewmode_episodes'))
 	return True
 
 def showShow(url):
@@ -114,7 +117,6 @@ def showShow(url):
 	except:
 		fanart = None
 	sections = {}
-	context = [('Use Current View For Seasons','RunScript(plugin.video.geekandsundry,viewmode_seasons)')]
 	for i in items:
 		idict = i.groupdict()
 		section = idict.get('section','')
@@ -129,9 +131,8 @@ def showShow(url):
 			else:
 				display = section.replace('-',' ')
 			display = display.title()
-			addDir(display,section + ':' + url,'season',idict.get('thumb',''),fanart=fanart,context=context)
+			addDir(display,section + ':' + url,'season',idict.get('thumb',''),fanart=fanart)
 	xbmcplugin.setContent(int(sys.argv[1]), 'tvshows')
-	xbmc.executebuiltin("Container.SetViewMode(%s)" % ADDON.getSetting('viewmode_seasons'))
 	return True
 
 def showVideo(url):
@@ -213,10 +214,5 @@ def doPlugin():
 		
 	if mode != 9999: xbmcplugin.endOfDirectory(int(sys.argv[1]),succeeded=success,updateListing=update_dir,cacheToDisc=cache)
 
-if __name__ == '__main__':
-	arg1 = sys.argv[1]
-	if arg1.startswith('viewmode'):
-		ADDON.setSetting(arg1,xbmc.getInfoLabel('Container.Viewmode'))
-		print repr(ADDON.getSetting(arg1))
-	else:
-		doPlugin()
+if __name__ == '__main__':	
+	doPlugin()
