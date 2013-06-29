@@ -1,5 +1,6 @@
 import os, sys, urllib, urllib2, re, htmlentitydefs, md5, time
 import xbmc, xbmcgui, xbmcplugin, xbmcaddon
+import bs4
 ADDON = xbmcaddon.Addon(id='plugin.video.geekandsundry')
 __version__ = ADDON.getAddonInfo('version')
 __language__ = ADDON.getLocalizedString
@@ -7,7 +8,8 @@ CACHE_PATH = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile'),'cach
 FANART_PATH = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile'),'fanart'))
 if not os.path.exists(CACHE_PATH): os.makedirs(CACHE_PATH)
 if not os.path.exists(FANART_PATH): os.makedirs(FANART_PATH)
-plugin_fanart = os.path.join(xbmc.translatePath(ADDON.getAddonInfo('path')),'fanart.jpg')
+ADDON_PATH = xbmc.translatePath(ADDON.getAddonInfo('path'))
+plugin_fanart = os.path.join(ADDON_PATH,'fanart.jpg')
 del ADDON
 
 def LOG(msg):
@@ -80,7 +82,52 @@ def showMain():
 			statusdisp = '[COLOR FFAAAA00]{0}[/COLOR]'.format(status)
 		plot = 'Status: [B]{0}[/B][CR][CR]{1}'.format(statusdisp,idict.get('desc'))
 		addDir(idict.get('title',''),url,'show',idict.get('logo',''),fanart=fanart,info={"Plot":plot,'status':status})
+	addDir('Vlogs','','vlogs',os.path.join(ADDON_PATH,'resources','media','vlogs.png'),fanart='')
 	xbmcplugin.setContent(int(sys.argv[1]), 'tvshows')
+
+def getSoup(html):
+	try:
+		soup = bs4.BeautifulSoup(html, "lxml")
+		LOG('Using: lxml')
+	except:
+		try:
+			soup = bs4.BeautifulSoup(html, "html5lib")
+			LOG('Using: html5lib')
+		except:
+			soup = bs4.BeautifulSoup(html)
+			LOG('Using: default')
+	return soup
+
+def showVlogs():
+	url = 'http://www.geekandsundry.com/'
+	html = getCachedHTML('main',url)
+	if not html:
+		html = urllib2.urlopen(url).read()
+		cacheHTML('main', url, html)
+	soup = getSoup(html)
+	vlogs = soup.select('.subvlogs')
+	if not vlogs: return
+	for a in vlogs[0].findAll('a'):
+		url = a.get('href','')
+		li = a.li
+		icon = li.img.get('src','')
+		fanart = createFanart(icon,url)
+		title = li.span.string
+		addDir(title,url,'show',icon,fanart=fanart,info={"Plot":'','status':''})
+
+def getVlogVideos(html):
+	soup = getSoup(html)
+	shows = soup.select('.ui-carousel')
+	if not shows: return
+	for li in shows[0].findAll('li'):
+		url = li.a.get('href','')
+		icon = li.img.get('src','')
+		fanart = createFanart(icon,url)
+		title = li.h2.string
+		ep = extractEpisode(title,icon)
+		addDir(title,url,'video',icon,playable=True,episode=ep,fanart=fanart)
+	xbmcplugin.setContent(int(sys.argv[1]), 'episodes')
+	return True
 
 def showSeason(url):
 	if not url: return False
@@ -110,6 +157,7 @@ def showShow(url):
 	if not html:
 		html = urllib2.urlopen(url).read()
 		cacheHTML('show', url, html)
+	if 'vlogger' in url: return getVlogVideos(html)
 	items = re.finditer("(?is)<li class='episode-item-(?P<section>[^']+)'>\s+?<a href='(?P<url>[^']+)'.+?<img src=\"(?P<thumb>[^\"]*)\".+?<h2>(?P<title>[^<]+)</h2>.+?</li>",html)
 	try:
 		fanart = 'http://www.geekandsundry.com' + re.search('<div id="show-banner"[^>]*url\(\'(?P<url>[^\']*)\'',html).group(1)
@@ -146,25 +194,69 @@ def showVideo(url):
 	return True
 
 def createFanart(url,page_url):
-	outname = page_url.split('://',1)[-1].split('.')[0] + '.png'
+	if '/vlogger/' in page_url or '/vlogs/' in page_url:
+		outname = page_url.rsplit('/',1)[-1]
+	else:
+		outname = page_url.split('://',1)[-1].split('.')[0] + '.png'
+		
 	outfile = os.path.join(FANART_PATH,outname)
 	if os.path.exists(outfile): return outfile
 	if not url: return ''
 	workfile = os.path.join(CACHE_PATH,'work.gif')
 	urllib.urlretrieve(url, workfile)
+	if '/vlogger/' in page_url or '/vlogs/' in page_url:
+		img = tileImage(640,360,workfile)
+		img.save(outfile,'PNG')
+		return outfile
+	
 	try:
 		from PIL import Image,ImageOps # @UnresolvedImport
 		img = Image.open(workfile).convert('RGB')
 		h = img.histogram()
 		rgb = tuple([b.index(max(b)) for b in [ h[i*256:(i+1)*256] for i in range(3) ]])
-		img2 = ImageOps.expand(img,border=(0,120),fill=rgb)
+		if img.size[0] == 60:
+			img2 = ImageOps.expand(img,border=(580,150),fill=rgb)
+		else:
+			img2 = ImageOps.expand(img,border=(0,120),fill=rgb)
 		img2.save(outfile,'PNG')
 		return outfile
 	except:
 		return url
 	
+def tileImage(w,h,source):
+	from PIL import Image # @UnresolvedImport
+	source = Image.open(source).convert('RGBA')
+	sw,sh = source.size
+	target = Image.new('RGBA',(w,h),(0,0,0,255))
+	x = 10
+	y = 0
+	switch = False
+	while x < w:
+		while y < h:
+			nx = x
+			ny = y
+			nw = sw
+			nh = sh
+			paste = source
+			if x + sw > w or y + sh > h or y < 0 or x < 0:
+				if x + sw > w: nw = sw - (w - x)
+				if y + sh > h: nh = sh - (h - y)
+				if x < 0: nx = abs(x)
+				if y < 0: ny = abs(y)
+				paste = source.copy()
+				paste.crop((0,ny,nw,nh))
+			target.paste(paste,(x,y),paste)
+			y+= sh + 15
+		switch = not switch
+		if switch:
+			y = int(sw/2) * -1
+		else:
+			y = 0
+		x+=sw + 10
+	return target
+		
 def extractEpisode(title,url):
-	test = re.search('(?i)ep(\d+)',title)
+	test = re.search('(?i)(?:ep|#)(\d+)',title)
 	if not test: test = re.search('(?i)_E(\d+)\.',url)
 	if not test: test = re.search('[_\.]\d*(\d\d)\.',url)
 	if test: return test.group(1)
@@ -204,6 +296,8 @@ def doPlugin():
 	url = urllib.unquote_plus(params.get('url',''))
 	if not mode:
 		showMain()
+	elif mode == 'vlogs':
+		showVlogs()
 	elif mode == 'season':
 		success = showSeason(url)
 	elif mode == 'show':

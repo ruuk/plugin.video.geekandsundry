@@ -1,6 +1,10 @@
 Geek & Sundry Changelog
 
-Current Version : 0.0.3
+Current Version : 0.0.4
+
+** 0.0.4 ***
+
+Added Vlogs
 
 ** 0.0.3 ***
 
