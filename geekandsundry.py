@@ -90,12 +90,8 @@ def getSoup(html):
 		soup = bs4.BeautifulSoup(html, "lxml")
 		LOG('Using: lxml')
 	except:
-		try:
-			soup = bs4.BeautifulSoup(html, "html5lib")
-			LOG('Using: html5lib')
-		except:
-			soup = bs4.BeautifulSoup(html)
-			LOG('Using: default')
+		soup = bs4.BeautifulSoup(html)
+		LOG('Using: default')
 	return soup
 
 def showVlogs():

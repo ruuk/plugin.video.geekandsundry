@@ -1,6 +1,10 @@
 Geek & Sundry Changelog
 
-Current Version : 0.0.4
+Current Version : 0.0.5
+
+** 0.0.5 ***
+
+Fix for using bs4 without lxml (ie ATV2) causing Vlogs not to work
 
 ** 0.0.4 ***
 
