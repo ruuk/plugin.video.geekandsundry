@@ -1,6 +1,11 @@
 Geek & Sundry Changelog
 
-Current Version : 0.0.7
+Current Version : 0.0.8
+
+** 0.0.8 ***
+
+Make strings translatable (added string.po, etc)
+Add some new fields to addon.xml
 
 ** 0.0.7 ***
 

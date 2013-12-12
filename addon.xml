@@ -1,19 +1,17 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.geekandsundry"
-       name="Geek &amp; Sundry"
-       version="0.0.7"
-       provider-name="Rick Phillips (ruuk)">
-  <requires>
-    <import addon="xbmc.python" version="2.1.0"/>
-   </requires>
-
-  <extension point="xbmc.python.pluginsource"
-            library="geekandsundry.py">
-        <provides>video</provides>
-  </extension>
-  <extension point="xbmc.addon.metadata">
-    <summary lang="en">Videos of geekandsundry.com</summary>
-    <description>Geek &amp; Sundry videos such as The Guild and Space Janitors</description>
-	<platform>all</platform>
-  </extension>
+<addon id="plugin.video.geekandsundry" name="Geek &amp; Sundry" version="0.0.8" provider-name="Rick Phillips (ruuk)">
+	<requires>
+		<import addon="xbmc.python" version="2.1.0" />
+	</requires>
+	<extension point="xbmc.python.pluginsource" library="geekandsundry.py">
+		<provides>video</provides>
+	</extension>
+	<extension point="xbmc.addon.metadata">
+		<summary lang="en">geekandsundry.com videos</summary>
+		<description>Geek &amp; Sundry videos such as TableTop, The Guild and Space Janitors</description>
+		<platform>all</platform>
+		<license>GNU GENERAL PUBLIC LICENSE. Version 2, June 1991</license>
+		<forum></forum>
+		<source>http://github.com/ruuk/plugin.video.geekandsundry</source>
+	</extension>
 </addon>

@@ -3,7 +3,7 @@ import xbmc, xbmcgui, xbmcplugin, xbmcaddon
 import bs4
 ADDON = xbmcaddon.Addon(id='plugin.video.geekandsundry')
 __version__ = ADDON.getAddonInfo('version')
-__language__ = ADDON.getLocalizedString
+T = ADDON.getLocalizedString
 CACHE_PATH = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile'),'cache'))
 FANART_PATH = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile'),'fanart'))
 if not os.path.exists(CACHE_PATH): os.makedirs(CACHE_PATH)
@@ -66,7 +66,7 @@ def get_params():
 	return param
 
 def showMain():
-	addDir('Newest Videos','','newest','logo',fanart='')
+	addDir(T(32100),'','newest','logo',fanart='')
 	url = 'http://www.geekandsundry.com/'
 	html = getCachedHTML('main',url)
 	if not html:
@@ -75,7 +75,7 @@ def showMain():
 			cacheHTML('main', url, html)
 		except:
 			ERROR('Failed getting main page')
-			xbmc.executebuiltin('Notification(%s,%s,%s,%s)' % ('Geek & Sundry','geekandsundry.com is down.',3,ADDON.getAddonInfo('icon')))
+			xbmc.executebuiltin('Notification(%s,%s,%s,%s)' % ('Geek & Sundry',T(32101),3,ADDON.getAddonInfo('icon')))
 			xbmcplugin.setContent(int(sys.argv[1]), 'tvshows')
 			return
 	nhtml = html.split('<div class="new-shows">',1)[-1].split('<div class="clear">',1)[0]
@@ -92,14 +92,14 @@ def showMain():
 			statusdisp = '[COLOR green]{0}[/COLOR]'.format(status)
 		elif 'Hiatus' in status:
 			statusdisp = '[COLOR FFAAAA00]{0}[/COLOR]'.format(status)
-		plot = 'Status: [B]{0}[/B][CR][CR]{1}'.format(statusdisp,idict.get('desc'))
+		plot = '{0}: [B]{1}[/B][CR][CR]{2}'.format(T(32102),statusdisp,idict.get('desc'))
 		mode = 'show'
 		if 'vlogs' in url:
 			mode = 'vlogs'
 			vlogs = True
 		addDir(idict.get('title',''),url,mode,idict.get('logo',''),fanart=fanart,info={"Plot":plot,'status':status})
 	if not vlogs: addDir('Vlogs','','vlogs',os.path.join(ADDON_PATH,'resources','media','vlogs.png'),fanart='')
-	addDir('All Shows','','all','logo',fanart='')
+	addDir(T(32103),'','all','logo',fanart='')
 	xbmcplugin.setContent(int(sys.argv[1]), 'tvshows')
 
 def getSoup(html):
@@ -209,7 +209,7 @@ def showShow(url):
 				num = re.search('\d+$',display)
 				if num:
 					display = re.sub('\d+$','',display) + ' ' + num.group(0)
-				if section.startswith('extras-'): display += ' - Extras '
+				if section.startswith('extras-'): display += ' - {0} '.format(T(32104))
 			else:
 				display = section.replace('-',' ')
 			display = display.title()
