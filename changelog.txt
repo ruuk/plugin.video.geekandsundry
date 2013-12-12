@@ -1,6 +1,10 @@
 Geek & Sundry Changelog
 
-Current Version : 0.0.8
+Current Version : 0.0.9
+
+** 0.0.9 ***
+
+Added youtube plugin dependency
 
 ** 0.0.8 ***
 
