@@ -1,6 +1,11 @@
 Geek & Sundry Changelog
 
-Current Version : 0.0.6
+Current Version : 0.0.7
+
+** 0.0.7 ***
+
+Fix for changes to the website
+Added 'Newest Videos' which shows the newest YouTube releases
 
 ** 0.0.6 ***
 
