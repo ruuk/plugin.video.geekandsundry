@@ -1,6 +1,10 @@
 Geek & Sundry Changelog
 
-Current Version : 0.0.9
+Current Version : 0.0.10
+
+** 0.0.10 ***
+
+Added forum field to addon.xml
 
 ** 0.0.9 ***
 
