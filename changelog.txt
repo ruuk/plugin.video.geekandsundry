@@ -1,10 +1,14 @@
 Geek & Sundry Changelog
 
-Current Version : 0.0.21
+Current Version : 0.0.22
+
+*** 0.0.22 ***
+
+Import bs4 from external addon
 
 *** 0.0.21 ***
 
-Revert Changes
+Revert Changes 0.0.19 - 0.0.20
 
 *** 0.0.18 ***
 
