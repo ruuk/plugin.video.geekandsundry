@@ -148,7 +148,7 @@ def showVlogs():
 		icon = li.img.get('src') or ''
 		fanart = ''
 		try:
-			fanart = createFanart(icon,url)
+			fanart = createFanart(url,urlparse.urljoin(icon),url)
 		except:
 			print str(sys.exc_info()[1])
 		if not li.span: continue
@@ -170,7 +170,7 @@ def getVlogVideos(html):
 		xbmcplugin.setContent(int(sys.argv[1]), 'episodes')
 		return True
 	except:
-		ERROR('TEST')
+		ERROR('getVlogVideos()')
 
 def showSeason(url):
 	if not url: return False
@@ -259,7 +259,15 @@ def showVideo(ID):
 	xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=listitem)
 	return True
 
+def hasPIL():
+	try:
+		import PIL # @UnresolvedImport @UnusedImport
+		return True
+	except:
+		return False
+	
 def createFanart(url,page_url):
+	if not hasPIL(): return url
 	if '/vlogger/' in page_url or '/vlogs/' in page_url:
 		outname = page_url.rsplit('/',1)[-1]
 	else:
