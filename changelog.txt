@@ -1,6 +1,10 @@
 Geek & Sundry Changelog
 
-Current Version : 0.0.11
+Current Version : 0.0.12
+
+** 0.0.12 ***
+
+Testing version
 
 ** 0.0.11 ***
 

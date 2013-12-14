@@ -102,10 +102,10 @@ def showMain():
 	addDir(T(32103),'','all','logo',fanart='')
 	xbmcplugin.setContent(int(sys.argv[1]), 'tvshows')
 
-def getSoup(html):
+def getSoup(html,default_parser="lxml"):
 	try:
-		soup = bs4.BeautifulSoup(html, "lxml")
-		LOG('Using: lxml')
+		soup = bs4.BeautifulSoup(html, default_parser)
+		LOG('Using: %s' % default_parser)
 	except:
 		soup = bs4.BeautifulSoup(html,"html.parser")
 		LOG('Using: html.parser')
@@ -138,10 +138,14 @@ def showVlogs():
 	if not html:
 		html = urllib2.urlopen(url).read()
 		cacheHTML('main', url, html)
+	print 'test1'
 	soup = getSoup(html)
+	print 'test2'
 	vlogs = soup.select('.subvlogs')
+	print 'test3'
 	if not vlogs: return
 	for a in vlogs[0].findAll('a'):
+		print a
 		url = a.get('href','')
 		li = a.li
 		icon = li.img.get('src','')
