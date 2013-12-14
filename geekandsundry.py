@@ -148,7 +148,7 @@ def showVlogs():
 		icon = li.img.get('src') or ''
 		fanart = ''
 		try:
-			fanart = createFanart(url,urlparse.urljoin(icon),url)
+			fanart = createFanart(urlparse.urljoin(url,icon),url)
 		except:
 			print str(sys.exc_info()[1])
 		if not li.span: continue
@@ -159,7 +159,7 @@ def getVlogVideos(html):
 	try:
 		soup = getSoup(html)
 		shows = soup.select('.ui-carousel')
-		if not shows: return
+		if not shows: return True
 		for li in shows[0].findAll('li'):
 			url = li.a.get('href','')
 			icon = li.img.get('src','')
@@ -171,6 +171,7 @@ def getVlogVideos(html):
 		return True
 	except:
 		ERROR('getVlogVideos()')
+		return False
 
 def showSeason(url):
 	if not url: return False
@@ -251,6 +252,7 @@ def showVideoURL(url):
 	html = urllib2.urlopen(url).read()
 	ID = re.search('(?is)<iframe.+?src="[^"]+?embed/(?P<id>[^/"]+)".+?</iframe>',html).group(1)
 	showVideo(ID)
+	return True
 	
 def showVideo(ID):
 	url = 'plugin://plugin.video.youtube/?path=/root/video&action=play_video&videoid=' + ID
