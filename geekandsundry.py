@@ -149,7 +149,10 @@ def showVlogs():
 		if not li: continue
 		icon = li.img.get('src') or ''
 		print 'test3'
-		fanart = createFanart(icon,url)
+		try:
+			fanart = createFanart(icon,url)
+		except:
+			print str(sys.exc_info()[1])
 		print 'test4'
 		if not li.span: continue
 		title = li.span.string or ''
