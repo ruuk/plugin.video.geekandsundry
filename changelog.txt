@@ -1,6 +1,10 @@
 Geek & Sundry Changelog
 
-Current Version : 0.0.10
+Current Version : 0.0.11
+
+** 0.0.11 ***
+
+Fix for platforms with no lxml and poor html.parser
 
 ** 0.0.10 ***
 

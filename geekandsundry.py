@@ -1,4 +1,4 @@
-import os, sys, urllib, urllib2, urlparse, re, htmlentitydefs, md5, time
+import os, sys, urllib, urllib2, urlparse, re, htmlentitydefs, hashlib, time
 import xbmc, xbmcgui, xbmcplugin, xbmcaddon
 import bs4
 ADDON = xbmcaddon.Addon(id='plugin.video.geekandsundry')
@@ -320,12 +320,12 @@ def extractEpisode(title,url):
 	return ''
 
 def cacheHTML(prefix,url,html):
-	fname = prefix + '.' + md5.md5(url).hexdigest()
+	fname = prefix + '.' + hashlib.md5(url).hexdigest()
 	with open(os.path.join(CACHE_PATH,fname),'w') as f:
 		f.write(str(time.time()) + '\n' + html)
 		
 def getCachedHTML(prefix,url):
-	fname = prefix + '.' + md5.md5(url).hexdigest()
+	fname = prefix + '.' + hashlib.md5(url).hexdigest()
 	path = os.path.join(CACHE_PATH,fname)
 	if not os.path.exists(path): return None
 	with open(path,'r') as f:
