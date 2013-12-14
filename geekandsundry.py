@@ -149,6 +149,7 @@ def showVlogs():
 		if not li: continue
 		icon = li.img.get('src') or ''
 		print 'test3'
+		fanart = ''
 		try:
 			fanart = createFanart(icon,url)
 		except:
@@ -273,9 +274,15 @@ def createFanart(url,page_url):
 	workfile = os.path.join(CACHE_PATH,'work.gif')
 	urllib.urlretrieve(url, workfile)
 	if '/vlogger/' in page_url or '/vlogs/' in page_url:
-		img = tileImage(640,360,workfile)
-		img.save(outfile,'PNG')
-		return outfile
+		try:
+			img = tileImage(640,360,workfile)
+			img.save(outfile,'PNG')
+			return outfile
+		except ImportError:
+			pass
+		except:
+			ERROR('')
+		return url
 	
 	try:
 		from PIL import Image,ImageOps # @UnresolvedImport
@@ -288,8 +295,11 @@ def createFanart(url,page_url):
 			img2 = ImageOps.expand(img,border=(0,120),fill=rgb)
 		img2.save(outfile,'PNG')
 		return outfile
+	except ImportError:
+		pass
 	except:
-		return url
+		ERROR('')
+	return url
 	
 def tileImage(w,h,source):
 	from PIL import Image # @UnresolvedImport
