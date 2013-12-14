@@ -1,7 +1,6 @@
 import os, sys, urllib, urllib2, urlparse, re, htmlentitydefs, hashlib, time
 import xbmc, xbmcgui, xbmcplugin, xbmcaddon
-import HTMLParser  # @UnusedImport
-import bs4  # @UnresolvedImport
+import bs4
 ADDON = xbmcaddon.Addon(id='plugin.video.geekandsundry')
 __version__ = ADDON.getAddonInfo('version')
 T = ADDON.getLocalizedString

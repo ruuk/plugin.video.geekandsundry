@@ -1,10 +1,10 @@
 Geek & Sundry Changelog
 
-Current Version : 0.0.19
+Current Version : 0.0.21
 
-*** 0.0.19 ***
+*** 0.0.21 ***
 
-Import bs4 from XBMC module
+Revert Changes
 
 *** 0.0.18 ***
 
