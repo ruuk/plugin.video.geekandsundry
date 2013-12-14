@@ -143,37 +143,34 @@ def showVlogs():
 	if not vlogs: return
 	for a in vlogs[0].findAll('a'):
 		url = a.get('href') or ''
-		print 'test1'
 		li = a.li
-		print 'test2'
 		if not li: continue
 		icon = li.img.get('src') or ''
-		print 'test3'
 		fanart = ''
 		try:
 			fanart = createFanart(icon,url)
 		except:
 			print str(sys.exc_info()[1])
-		print 'test4'
 		if not li.span: continue
 		title = li.span.string or ''
-		print 'test5'
 		addDir(title,url,'show',icon,fanart=fanart,info={"Plot":'','status':''})
-		print 'test6'
 
 def getVlogVideos(html):
-	soup = getSoup(html)
-	shows = soup.select('.ui-carousel')
-	if not shows: return
-	for li in shows[0].findAll('li'):
-		url = li.a.get('href','')
-		icon = li.img.get('src','')
-		fanart = createFanart(icon,url)
-		title = li.h2.string
-		ep = extractEpisode(title,icon)
-		addDir(title,url,'video',icon,playable=True,episode=ep,fanart=fanart)
-	xbmcplugin.setContent(int(sys.argv[1]), 'episodes')
-	return True
+	try:
+		soup = getSoup(html)
+		shows = soup.select('.ui-carousel')
+		if not shows: return
+		for li in shows[0].findAll('li'):
+			url = li.a.get('href','')
+			icon = li.img.get('src','')
+			fanart = createFanart(icon,url)
+			title = li.h2.string
+			ep = extractEpisode(title,icon)
+			addDir(title,url,'video',icon,playable=True,episode=ep,fanart=fanart)
+		xbmcplugin.setContent(int(sys.argv[1]), 'episodes')
+		return True
+	except:
+		ERROR('TEST')
 
 def showSeason(url):
 	if not url: return False

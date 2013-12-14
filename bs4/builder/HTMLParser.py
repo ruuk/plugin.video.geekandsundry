@@ -7,7 +7,7 @@
 # data -- only char and entity references and end tags are special)
 # and CDATA (character data -- only end tags are special).
 
-print 'plugin.video.geekandsundry: Using internal html.parser'
+print 'plugin.video.geekandsundry: html.parser is internal'
 import markupbase
 import re
 
