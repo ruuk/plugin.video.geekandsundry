@@ -138,20 +138,24 @@ def showVlogs():
 	if not html:
 		html = urllib2.urlopen(url).read()
 		cacheHTML('main', url, html)
-	print 'test1'
 	soup = getSoup(html)
-	print 'test2'
 	vlogs = soup.select('.subvlogs')
-	print 'test3'
 	if not vlogs: return
 	for a in vlogs[0].findAll('a'):
-		print a
-		url = a.get('href','')
+		url = a.get('href') or ''
+		print 'test1'
 		li = a.li
-		icon = li.img.get('src','')
+		print 'test2'
+		if not li: continue
+		icon = li.img.get('src') or ''
+		print 'test3'
 		fanart = createFanart(icon,url)
-		title = li.span.string
+		print 'test4'
+		if not li.span: continue
+		title = li.span.string or ''
+		print 'test5'
 		addDir(title,url,'show',icon,fanart=fanart,info={"Plot":'','status':''})
+		print 'test6'
 
 def getVlogVideos(html):
 	soup = getSoup(html)
