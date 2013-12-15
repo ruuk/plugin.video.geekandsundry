@@ -1,6 +1,7 @@
 import os, sys, urllib, urllib2, urlparse, re, htmlentitydefs, hashlib, time
 import xbmc, xbmcgui, xbmcplugin, xbmcaddon
-import HTMLParser # @UnusedImport
+if sys.version < '2.7.3': #If crappy html.parser, use internal version. Using internal version on ATV2 crashes as of XBMC 12.2, so that's why we test version
+	import HTMLParser # @UnusedImport
 import bs4  # @UnresolvedImport
 ADDON = xbmcaddon.Addon(id='plugin.video.geekandsundry')
 __version__ = ADDON.getAddonInfo('version')
