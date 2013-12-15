@@ -152,7 +152,7 @@ def showVlogs():
 		try:
 			fanart = createFanart(urlparse.urljoin(url,icon),url)
 		except:
-			print str(sys.exc_info()[1])
+			LOG(str(sys.exc_info()[1]))
 		if not li.span: continue
 		title = li.span.string or ''
 		addDir(title,url,'show',icon,fanart=fanart,info={"Plot":'','status':''})
@@ -320,7 +320,7 @@ def tileImage(w,h,source):
 	switch = False
 	while x < w:
 		while y < h:
-			nx = x
+			nx = x  # @UnusedVariable
 			ny = y
 			nw = sw
 			nh = sh
@@ -328,7 +328,7 @@ def tileImage(w,h,source):
 			if x + sw > w or y + sh > h or y < 0 or x < 0:
 				if x + sw > w: nw = sw - (w - x)
 				if y + sh > h: nh = sh - (h - y)
-				if x < 0: nx = abs(x)
+				if x < 0: nx = abs(x)  # @UnusedVariable
 				if y < 0: ny = abs(y)
 				paste = source.copy()
 				paste.crop((0,ny,nw,nh))

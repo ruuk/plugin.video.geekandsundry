@@ -1,8 +1,17 @@
 Geek & Sundry Changelog
 
-Current Version : 0.0.22
+Current Version : 0.1.0
 
-*** 0.0.22 ***
+*** 0.1.0 ***
+
+Remove extraneous print statements
+Version bump for submission to official repo
+
+*** 0.0.23 ***
+
+Fix for crashing on ATV2 when showing vlogs. Now only imports internal HTMLParser if needed
+
+*** 0.0.23 ***
 
 Import bs4 from external addon
 
