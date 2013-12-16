@@ -1,6 +1,11 @@
 Geek & Sundry Changelog
 
-Current Version : 0.1.0
+Current Version : 0.1.1
+
+*** 0.1.1 ***
+
+Added languaage tag to addon.xml
+Added versions to module imports
 
 *** 0.1.0 ***
 
