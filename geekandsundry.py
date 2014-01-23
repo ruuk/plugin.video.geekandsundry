@@ -3,6 +3,10 @@ import xbmc, xbmcgui, xbmcplugin, xbmcaddon
 if sys.version < '2.7.3': #If crappy html.parser, use internal version. Using internal version on ATV2 crashes as of XBMC 12.2, so that's why we test version
 	import HTMLParser # @UnusedImport
 import bs4  # @UnresolvedImport
+
+from xbmcswift2 import Plugin  # @UnresolvedImport
+plugin = Plugin()
+
 ADDON = xbmcaddon.Addon(id='plugin.video.geekandsundry')
 __version__ = ADDON.getAddonInfo('version')
 T = ADDON.getLocalizedString
@@ -13,11 +17,8 @@ if not os.path.exists(FANART_PATH): os.makedirs(FANART_PATH)
 ADDON_PATH = xbmc.translatePath(ADDON.getAddonInfo('path'))
 plugin_fanart = os.path.join(ADDON_PATH,'fanart.jpg')
 
-def LOG(msg):
-	print 'plugin.video.geekandsundry: %s' % msg 
-
 def ERROR(msg):
-	LOG('ERROR: {0}'.format(msg))
+	plugin.log.error('ERROR: {0}'.format(msg))
 	import traceback
 	traceback.print_exc()
 	
@@ -36,39 +37,10 @@ def convertHTMLCodes(html):
 		pass
 	return html
 
-def addDir(name,url,mode,iconimage,page=1,tot=0,playable=False,desc='',episode='',fanart=None,context=None,info=None):
-	name = convertHTMLCodes(name)
-	u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)+"&page="+str(page)
-	liz=xbmcgui.ListItem(name, 'test',iconImage="DefaultFolder.png", thumbnailImage=iconimage)
-	infolabels={"Title": name,"Episode":episode}
-	if info: infolabels.update(info)
-	liz.setInfo( type="Video", infoLabels=infolabels )
-	if playable: liz.setProperty('IsPlayable', 'true')
-	liz.setProperty('fanart_image',fanart or plugin_fanart)
-	if context: liz.addContextMenuItems(context)
-	return xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz,isFolder=not playable,totalItems=tot)
-
-def get_params():
-	param=[]
-	paramstring=sys.argv[2]
-	if len(paramstring)>=2:
-		params=sys.argv[2]
-		cleanedparams=params.replace('?','')
-		if (params[len(params)-1]=='/'):
-			params=params[0:len(params)-2]
-		pairsofparams=cleanedparams.split('&')
-		param={}
-		for i in range(len(pairsofparams)):
-			splitparams={}
-			splitparams=pairsofparams[i].split('=')
-			if (len(splitparams))==2:
-				param[splitparams[0]]=splitparams[1]
-	else:
-		param={}					
-	return param
-
+@plugin.route('/')
 def showMain():
-	addDir(T(32100),'','newest','logo',fanart='')
+	items = []
+	items.append({'label':T(32100),'path':plugin.url_for('showNewest')})
 	url = 'http://www.geekandsundry.com/'
 	html = getCachedHTML('main',url)
 	if not html:
@@ -82,9 +54,9 @@ def showMain():
 			return
 	nhtml = html.split('<div class="new-shows">',1)[-1].split('<div class="clear">',1)[0]
 	ohtml = html.split('<div class="old-shows">',1)[-1].split('<div class="clear">',1)[0]
-	items = re.finditer("(?is)<a href='(?P<url>[^\"'>]+)'>.+?<li class=\"[^\"]*show-(?P<status>[\w-]+)\">.+?<img src=\"(?P<logo>[^\"'>]+)\" alt=\"(?P<title>[^\"]+)\".+?<p>(?P<desc>[^<]+)</p>.+?</a>",nhtml+ohtml)
+	results = re.finditer("(?is)<a href='(?P<url>[^\"'>]+)'>.+?<li class=\"[^\"]*show-(?P<status>[\w-]+)\">.+?<img src=\"(?P<logo>[^\"'>]+)\" alt=\"(?P<title>[^\"]+)\".+?<p>(?P<desc>[^<]+)</p>.+?</a>",nhtml+ohtml)
 	vlogs = False
-	for i in items:
+	for i in results:
 		idict = i.groupdict()
 		url = urlparse.urljoin('http:',idict.get('url',''))
 		fanart = createFanart(None,url)
@@ -95,24 +67,33 @@ def showMain():
 		elif 'Hiatus' in status:
 			statusdisp = '[COLOR FFAAAA00]{0}[/COLOR]'.format(status)
 		plot = '{0}: [B]{1}[/B][CR][CR]{2}'.format(T(32102),statusdisp,idict.get('desc'))
-		mode = 'show'
+		mode = 'showShow'
 		if 'vlogs' in url:
-			mode = 'vlogs'
+			mode = 'showVlogs'
 			vlogs = True
-		addDir(idict.get('title',''),url,mode,idict.get('logo',''),fanart=fanart,info={"Plot":plot,'status':status})
-	if not vlogs: addDir('Vlogs','','vlogs',os.path.join(ADDON_PATH,'resources','media','vlogs.png'),fanart='')
-	addDir(T(32103),'','all','logo',fanart='')
-	xbmcplugin.setContent(int(sys.argv[1]), 'tvshows')
+		items.append(	{	'label':convertHTMLCodes(idict.get('title','')),
+							'path':plugin.url_for(mode,url=url),
+							'icon':idict.get('logo',''),
+							'properties':{'fanart_image':fanart},
+							'info':{'Plot':plot,'status':status}
+						}
+		)
+
+	if not vlogs: items.append({'label':'Vlogs','path':plugin.url_for('showVlogs'),'icon':os.path.join(ADDON_PATH,'resources','media','vlogs.png')})
+	items.append({'label':T(32103),'path':plugin.url_for('showAllShows')})
+	plugin.set_content('tvshows')
+	return items
 
 def getSoup(html,default_parser="lxml"):
 	try:
 		soup = bs4.BeautifulSoup(html, default_parser)
-		LOG('Using: %s' % default_parser)
+		plugin.log.info('Using: %s' % default_parser)
 	except:
 		soup = bs4.BeautifulSoup(html,"html.parser")
-		LOG('Using: html.parser')
+		plugin.log.info('Using: html.parser')
 	return soup
 
+@plugin.route('/all/')
 def showAllShows():
 	url = 'http://www.geekandsundry.com/shows/'
 	html = getCachedHTML('all',url)
@@ -120,6 +101,7 @@ def showAllShows():
 		html = urllib2.urlopen(url).read()
 		cacheHTML('all', url, html)
 	soup = getSoup(html)
+	items = []
 	for a in soup.select('#shows')[0].findAll('a'):
 		surl = urlparse.urljoin(url,a.get('href') or '')
 		img =  a.find('img')
@@ -127,13 +109,19 @@ def showAllShows():
 		title = img.get('alt') or ''
 		logo = img.get('src') or ''
 		fanart = createFanart(None,surl)
-		mode = "show"
+		mode = "showShow"
 		if 'vlogs' in surl:
-			mode = 'vlogs'
-		addDir(title,surl,mode,logo,fanart=fanart,info={"Plot":'','status':''})
-	xbmcplugin.setContent(int(sys.argv[1]), 'tvshows')
-	return True
+			mode = 'showVlogs'
+		items.append(	{	'label':convertHTMLCodes(title),
+							'path':plugin.url_for(mode,url=surl),
+							'icon':logo,
+							'properties':{'fanart_image':fanart}
+						}
+		)
+	plugin.set_content('tvshows')
+	return items
 	
+@plugin.route('/vlogs/')
 def showVlogs():
 	url = 'http://www.geekandsundry.com/'
 	html = getCachedHTML('main',url)
@@ -143,8 +131,10 @@ def showVlogs():
 	soup = getSoup(html)
 	vlogs = soup.select('.subvlogs')
 	if not vlogs: return
+	items = []
 	for a in vlogs[0].findAll('a'):
 		url = a.get('href') or ''
+		print url
 		li = a.li
 		if not li: continue
 		icon = li.img.get('src') or ''
@@ -152,29 +142,45 @@ def showVlogs():
 		try:
 			fanart = createFanart(urlparse.urljoin(url,icon),url)
 		except:
-			LOG(str(sys.exc_info()[1]))
+			plugin.log.info(str(sys.exc_info()[1]))
 		if not li.span: continue
 		title = li.span.string or ''
-		addDir(title,url,'show',icon,fanart=fanart,info={"Plot":'','status':''})
+		items.append(	{	'label':convertHTMLCodes(title),
+							'path':plugin.url_for('showShow',url=url),
+							'icon':icon,
+							'properties':{'fanart_image':fanart},
+						}
+		)
+	items.sort(key=lambda x: x['label'])
+	return items
 
 def getVlogVideos(html):
 	try:
 		soup = getSoup(html)
 		shows = soup.select('.ui-carousel')
-		if not shows: return True
+		if not shows: return None
+		items = []
 		for li in shows[0].findAll('li'):
 			url = li.a.get('href','')
 			icon = li.img.get('src','')
 			fanart = createFanart(icon,url)
 			title = li.h2.string
 			ep = extractEpisode(title,icon)
-			addDir(title,url,'video',icon,playable=True,episode=ep,fanart=fanart)
-		xbmcplugin.setContent(int(sys.argv[1]), 'episodes')
-		return True
+			items.append(	{	'label':convertHTMLCodes(title),
+								'path':plugin.url_for('showVideoURL',url=url),
+								'icon':icon,
+								'properties':{'fanart_image':fanart},
+								'info':{'Episode':ep},
+								'is_playable': True
+							}
+			)
+		plugin.set_content('episodes')
+		return items
 	except:
 		ERROR('getVlogVideos()')
-		return False
+		return None
 
+@plugin.route('/season/<url>')
 def showSeason(url):
 	if not url: return False
 	section,url = url.split(':',1)
@@ -182,21 +188,30 @@ def showSeason(url):
 	if not html:
 		html = urllib2.urlopen(url).read()
 		cacheHTML('show', url, html)
-	items = re.finditer("(?is)<li class='episode-item-(?P<section>[^']+)'>\s+?<a href='(?P<url>[^']+)'.+?<img src=\"(?P<thumb>[^\"]*)\".+?<h2>(?P<title>[^<]+)</h2>.+?</li>",html)
+	results = re.finditer("(?is)<li class='episode-item-(?P<section>[^']+)'>\s+?<a href='(?P<url>[^']+)'.+?<img src=\"(?P<thumb>[^\"]*)\".+?<h2>(?P<title>[^<]+)</h2>.+?</li>",html)
 	try:
 		fanart = 'http://www.geekandsundry.com' + re.search('<div id="show-banner"[^>]*url\(\'(?P<url>[^\']*)\'',html).group(1)
 		fanart = createFanart(fanart,url)
 	except:
-		fanart = None
-	for i in items:
+		fanart = ''
+	items = []
+	for i in results:
 		idict = i.groupdict()
 		currSection = idict.get('section','')
 		if currSection == section:
 			ep = extractEpisode(idict.get('title',''),idict.get('thumb',''))
-			addDir(idict.get('title',''),url + idict.get('url',''),'video',idict.get('thumb',''),playable=True,episode=ep,fanart=fanart)
-	xbmcplugin.setContent(int(sys.argv[1]), 'episodes')
-	return True
+			items.append(	{	'label':convertHTMLCodes(idict.get('title','')),
+								'path':plugin.url_for('showVideoURL',url=urlparse.urljoin(url,idict.get('url',''))),
+								'icon':idict.get('thumb',''),
+								'properties':{'fanart_image':fanart},
+								'info':{'Episode':ep},
+								'is_playable': True
+							}
+			)
+	plugin.set_content('episodes')
+	return items
 
+@plugin.route('/show/<url>')
 def showShow(url):
 	if not url: return False
 	html = getCachedHTML('show',url)
@@ -204,14 +219,15 @@ def showShow(url):
 		html = urllib2.urlopen(url).read()
 		cacheHTML('show', url, html)
 	if 'vlogger' in url: return getVlogVideos(html)
-	items = re.finditer("(?is)<li class='episode-item-(?P<section>[^']+)'>\s+?<a href='(?P<url>[^']+)'.+?<img src=\"(?P<thumb>[^\"]*)\".+?<h2>(?P<title>[^<]+)</h2>.+?</li>",html)
+	results = re.finditer("(?is)<li class='episode-item-(?P<section>[^']+)'>\s+?<a href='(?P<url>[^']+)'.+?<img src=\"(?P<thumb>[^\"]*)\".+?<h2>(?P<title>[^<]+)</h2>.+?</li>",html)
 	try:
 		fanart = urlparse.urljoin('http://www.geekandsundry.com',re.search('<div id="show-banner"[^>]*url\(\'(?P<url>[^\']*)\'',html).group(1))
 		fanart = createFanart(fanart,url)
 	except:
-		fanart = None
+		fanart = ''
 	sections = {}
-	for i in items:
+	items = []
+	for i in results:
 		idict = i.groupdict()
 		section = idict.get('section','')
 		if not section in sections:
@@ -225,19 +241,26 @@ def showShow(url):
 			else:
 				display = section.replace('-',' ')
 			display = display.title()
-			addDir(display,section + ':' + url,'season',idict.get('thumb',''),fanart=fanart)
-	xbmcplugin.setContent(int(sys.argv[1]), 'tvshows')
-	return True
+			items.append(	{	'label':convertHTMLCodes(display),
+								'path':plugin.url_for('showSeason',url=section + ':' + url),
+								'icon':idict.get('thumb',''),
+								'properties':{'fanart_image':fanart}
+							}
+			)
+	plugin.set_content('tvshows')
+	return items
 
+@plugin.route('/newest/')
 def showNewest():
+	items = []
 	url = 'http://www.youtube.com/user/geekandsundry/videos'
 	html = getCachedHTML('newest',url)
 	if not html:
 		html = urllib2.urlopen(url).read()
 		cacheHTML('newest', url, html)
 	soup = getSoup(html)
-	items = soup.findAll('h3')
-	for i in items:
+	results = soup.findAll('h3')
+	for i in results:
 		if not i.get('class'): continue
 		a = i.find('a')
 		if not a: continue
@@ -245,23 +268,27 @@ def showNewest():
 		href = a.get('href') or ''
 		ID = href.split('=',1)[-1]
 		thumb = 'http://i1.ytimg.com/vi/%s/0.jpg' % ID
-		addDir(a.get('title',''),ID,'video_id',thumb,playable=True,episode='',fanart='')
-		
-	return True
+		items.append(	{	'label':convertHTMLCodes(a.get('title','')),
+							'path':plugin.url_for('showVideo',ID=ID),
+							'icon':thumb,
+							'is_playable': True
+						}
+		)		
+	return items
 	
+@plugin.route('/play_url/<url>')
 def showVideoURL(url):
-	if not url: return False
+	if not url:
+		plugin.set_resolved_url(None)
+		return
 	html = urllib2.urlopen(url).read()
 	ID = re.search('(?is)<iframe.+?src="[^"]+?embed/(?P<id>[^/"]+)".+?</iframe>',html).group(1)
 	showVideo(ID)
-	return True
 	
+@plugin.route('/play/<ID>')
 def showVideo(ID):
 	url = 'plugin://plugin.video.youtube/?path=/root/video&action=play_video&videoid=' + ID
-	listitem = xbmcgui.ListItem(label='Video', path=url)
-	listitem.setInfo(type='Video',infoLabels={"Title": 'Video'})
-	xbmcplugin.setResolvedUrl(handle=int(sys.argv[1]), succeeded=True, listitem=listitem)
-	return True
+	plugin.set_resolved_url({'path':url,'info':{'type':'Video'}})
 
 def hasPIL():
 	try:
@@ -363,44 +390,14 @@ def getCachedHTML(prefix,url):
 		last, html = data.split('\n',1)
 	try:
 		if time.time() - float(last) > 3600:
-			LOG('Cached file expired. Getting new html...')
+			plugin.log.info('Cached file expired. Getting new html...')
 			return None
 	except:
-		LOG('Failed to process file cache time')
+		plugin.log.info('Failed to process file cache time')
 		return None
 	
-	LOG('Using cached HTML')
+	plugin.log.info('Using cached HTML')
 	return html
 
-def doPlugin():
-	success = True
-	cache = True
-	update_dir = False
-	
-	params=get_params()
-	
-	mode = params.get('mode')
-	url = urllib.unquote_plus(params.get('url',''))
-	if not mode:
-		showMain()
-	elif mode == 'vlogs':
-		showVlogs()
-	elif mode == 'season':
-		success = showSeason(url)
-	elif mode == 'show':
-		success = showShow(url)
-	elif mode == 'video':
-		success = showVideoURL(url)
-		if success: return
-	elif mode == 'video_id':
-		success = showVideo(url)
-		if success: return
-	elif mode == 'newest':
-		success = showNewest()
-	elif mode == 'all':
-		success = showAllShows()
-		
-	if mode != 9999: xbmcplugin.endOfDirectory(int(sys.argv[1]),succeeded=success,updateListing=update_dir,cacheToDisc=cache)
-
 if __name__ == '__main__':	
-	doPlugin()
+	plugin.run()

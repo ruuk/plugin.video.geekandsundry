@@ -1,6 +1,13 @@
 Geek & Sundry Changelog
 
-Current Version : 0.1.1
+Current Version : 0.1.2
+
+
+*** 0.1.2 ***
+
+Fixed a bug where playing some episodes caused an error
+Now using xbmcswift2 framework (added dependency to addon.xml)
+Vlogs are now sorted alphabetically
 
 *** 0.1.1 ***
 
