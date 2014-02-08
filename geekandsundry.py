@@ -1,20 +1,18 @@
 import os, sys, urllib, urllib2, urlparse, re, htmlentitydefs, hashlib, time
-import xbmc, xbmcgui, xbmcplugin, xbmcaddon
 if sys.version < '2.7.3': #If crappy html.parser, use internal version. Using internal version on ATV2 crashes as of XBMC 12.2, so that's why we test version
 	import HTMLParser # @UnusedImport
 import bs4  # @UnresolvedImport
 
-from xbmcswift2 import Plugin  # @UnresolvedImport
+from xbmcswift2 import Plugin, xbmc
 plugin = Plugin()
 
-ADDON = xbmcaddon.Addon(id='plugin.video.geekandsundry')
-__version__ = ADDON.getAddonInfo('version')
-T = ADDON.getLocalizedString
-CACHE_PATH = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile'),'cache'))
-FANART_PATH = xbmc.translatePath(os.path.join(ADDON.getAddonInfo('profile'),'fanart'))
+__version__ = plugin.addon.getAddonInfo('version')
+T = plugin.addon.getLocalizedString
+CACHE_PATH = xbmc.translatePath(os.path.join(plugin.addon.getAddonInfo('profile'),'cache'))
+FANART_PATH = xbmc.translatePath(os.path.join(plugin.addon.getAddonInfo('profile'),'fanart'))
 if not os.path.exists(CACHE_PATH): os.makedirs(CACHE_PATH)
 if not os.path.exists(FANART_PATH): os.makedirs(FANART_PATH)
-ADDON_PATH = xbmc.translatePath(ADDON.getAddonInfo('path'))
+ADDON_PATH = xbmc.translatePath(plugin.addon.getAddonInfo('path'))
 plugin_fanart = os.path.join(ADDON_PATH,'fanart.jpg')
 
 def ERROR(msg):
@@ -49,8 +47,8 @@ def showMain():
 			cacheHTML('main', url, html)
 		except:
 			ERROR('Failed getting main page')
-			xbmc.executebuiltin('Notification(%s,%s,%s,%s)' % ('Geek & Sundry',T(32101),3,ADDON.getAddonInfo('icon')))
-			xbmcplugin.setContent(int(sys.argv[1]), 'tvshows')
+			xbmc.executebuiltin('Notification(%s,%s,%s,%s)' % ('Geek & Sundry',T(32101),3,plugin.addon.getAddonInfo('icon')))  # @UndefinedVariable #For xbmcswift2
+			plugin.set_content('tvshows')
 			return
 	nhtml = html.split('<div class="new-shows">',1)[-1].split('<div class="clear">',1)[0]
 	ohtml = html.split('<div class="old-shows">',1)[-1].split('<div class="clear">',1)[0]
