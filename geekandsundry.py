@@ -126,23 +126,25 @@ def showVlogs():
 	if not html:
 		html = urllib2.urlopen(url).read()
 		cacheHTML('main', url, html)
-	soup = getSoup(html)
+	soup = getSoup(html,default_parser='html.parser')
 	vlogs = soup.select('.subvlogs')
 	if not vlogs: return
 	items = []
 	for a in vlogs[0].findAll('a'):
 		url = a.get('href') or ''
-		print url
 		li = a.li
-		if not li: continue
+		if not li:
+			continue
 		icon = li.img.get('src') or ''
 		fanart = ''
 		try:
 			fanart = createFanart(urlparse.urljoin(url,icon),url)
 		except:
 			plugin.log.info(str(sys.exc_info()[1]))
-		if not li.span: continue
-		title = li.span.string or ''
+		span = li.span
+		if not span:
+			continue
+		title = span.string or ''
 		items.append(	{	'label':convertHTMLCodes(title),
 							'path':plugin.url_for('showShow',url=url),
 							'icon':icon,
@@ -154,7 +156,7 @@ def showVlogs():
 
 def getVlogVideos(html):
 	try:
-		soup = getSoup(html)
+		soup = getSoup(html,default_parser="html.parser")
 		shows = soup.select('.ui-carousel')
 		if not shows: return None
 		items = []
@@ -280,7 +282,10 @@ def showVideoURL(url):
 		plugin.set_resolved_url(None)
 		return
 	html = urllib2.urlopen(url).read()
-	ID = re.search('(?is)<iframe.+?src="[^"]+?embed/(?P<id>[^/"]+)".+?</iframe>',html).group(1)
+	try:
+		ID = re.search('(?is)<iframe.+?src="[^"]+?embed/(?P<id>[^/"]+)".+?</iframe>',html).group(1)
+	except:
+		ID = re.search('href="http://youtu.be/(?P<id>\w+)"',html).group(1)
 	showVideo(ID)
 	
 @plugin.route('/play/<ID>')
