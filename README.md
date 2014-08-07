@@ -5,7 +5,7 @@ Geek & Sundry for Kodi (XBMC)
 ----------------------------
 This addon allows access to videos on the Geek & Sundry site at http://geekandsundry.com
 
-Installation should be done through Kodi System::Settings::Add-ons::Get Add-Ons::All Add-Ons::Picture Add-Ons::Geek & Sundry
+Installation should be done through Kodi System::Settings::Add-ons::Get Add-Ons::All Add-Ons::Video Add-Ons::Geek & Sundry
 
 If you want to ensure you are using the latest version of the addon you can install my [repository .zip file](http://ruuks-repo.googlecode.com/files/ruuk.addon.repository-1.0.0.zip).
 
