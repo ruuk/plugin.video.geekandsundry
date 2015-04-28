@@ -1,5 +1,9 @@
 Geek & Sundry Changelog
 
+*** 0.1.5 ***
+
+Added icons and fanart for shows
+Internal improvements
 
 *** 0.1.4 ***
 

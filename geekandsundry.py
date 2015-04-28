@@ -1,4 +1,4 @@
-import os, sys, urllib, requests, urlparse, re, htmlentitydefs, hashlib, time
+import os, sys, urllib, requests, re, htmlentitydefs, hashlib, time
 if sys.version < '2.7.3': #If crappy html.parser, use internal version. Using internal version on ATV2 crashes as of XBMC 12.2, so that's why we test version
     import HTMLParser #analysis:ignore
 import bs4  # @UnresolvedImport
@@ -16,6 +16,8 @@ ADDON_PATH = xbmc.translatePath(plugin.addon.getAddonInfo('path'))
 plugin_fanart = os.path.join(ADDON_PATH,'fanart.jpg')
 
 USER_AGENT = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.17 (KHTML, like Gecko) Chrome/24.0.1312.57 Safari/537.17'
+USER_AGENT_MOBILE = 'Mozilla/5.0(iPad; U; CPU iPhone OS 3_2 like Mac OS X; en-us) AppleWebKit/531.21.10 (KHTML, like Gecko) Version/4.0.4 Mobile/7B314 Safari/531.21.10'
+
 HEADERS = {'User-Agent':USER_AGENT}
 
 def ERROR(msg):
@@ -57,8 +59,33 @@ def showMain():
     items = []
     items.append({'label':T(32100),'path':plugin.url_for('showNewest')})
     items.append({'label':T(32103),'path':plugin.url_for('showAllShows')})
-#    items.append({'label':T(32105),'path':plugin.url_for('showVlogs')})
     return items
+
+def getShowIcon(url):
+    outnameBase = url.rstrip('/').rsplit('/',1)[-1]
+    outname = outnameBase + '.png'
+    outfan = outnameBase + '.url'
+    outfile = os.path.join(FANART_PATH,outfan)
+
+    if os.path.exists(outfile):
+        with open(outfile,'r') as f: return f.read(), os.path.join(FANART_PATH,outname)
+
+    default = 'http://geekandsundry.com/wp-content/themes/Geek_and_Sundry/img/fallbacks/646x538.jpg'
+    html = getCachedHTML('show',url)
+    if not html: html = getPage(url)
+    soup = getSoup(html)
+    iconDiv = soup.select('div.archive-image')
+    if not iconDiv: return default, default
+    iconImg = iconDiv[0].img
+    if not iconImg: return ''
+    src = iconImg.get('src')
+    if not src: return default, default
+    base, fname = src.rsplit('/',1)
+    fbase, ext = fname.rsplit('.',1)
+    fbase = fbase.rsplit('-',1)[0]
+    final = base + '/' + fbase + '.' + ext
+    with open(outfile,'w') as f: f.write(final)
+    return final, createFanart(final,url)
 
 @plugin.route('/all/')
 def showAllShows():
@@ -80,11 +107,22 @@ def showAllShows():
     div = soup.select('div.shelf')
     if not div: return
     anchors = div[0].findAll('a')
-    for a in anchors:
+    import xbmcgui
+    first = True
+    donePath = os.path.join(FANART_PATH,'done')
+    if os.path.exists(donePath): first = False
+    with open(donePath,'w') as f: f.write(str(time.time()))
+    if first:
+        d = xbmcgui.DialogProgress()
+        d.create('Loading shows','Initializing...')
+    total = len(anchors)
+    for i, a in enumerate(anchors):
         title = convertHTMLCodes(a.string)
-#        if title.lower() == 'vlogs': continue
-        url = a.get('href')
-        fanart = createFanart(None,url)
+        surl = a.get('href')
+        if first:
+            if d.iscanceled(): break
+            d.update(int((i/float(total))*100),'Initializing:',title)
+        fanart, icon = getShowIcon(surl)
         status = ''
 #        statusdisp = status
 #        if 'Air' in status:
@@ -94,106 +132,14 @@ def showAllShows():
 #        plot = '{0}: [B]{1}[/B][CR][CR]{2}'.format(T(32102),statusdisp,idict.get('desc'))
         mode = 'showShow'
         items.append(   {   'label':title,
-                            'path':plugin.url_for(mode,url=url),
-                            'icon':'',
+                            'path':plugin.url_for(mode,url=surl),
+                            'icon':icon,
                             'properties':{'fanart_image':fanart},
                             'info':{'Plot':'','status':status}
                         }
         )
 
     plugin.set_content('tvshows')
-    return items
-
-@plugin.route('/vlogs/')
-def showVlogs():
-    url = 'http://www.geekandsundry.com/'
-    html = getCachedHTML('main',url)
-    if not html:
-        html = getPage(url)
-        cacheHTML('main', url, html)
-    soup = getSoup(html,default_parser='html.parser')
-    vlogs = soup.select('.subvlogs')
-    if not vlogs: return
-    items = []
-    for a in vlogs[0].findAll('a'):
-        url = a.get('href') or ''
-        li = a.li
-        if not li:
-            continue
-        icon = li.img.get('src') or ''
-        fanart = ''
-        try:
-            fanart = createFanart(urlparse.urljoin(url,icon),url)
-        except:
-            plugin.log.info(str(sys.exc_info()[1]))
-        span = li.span
-        if not span:
-            continue
-        title = span.string or ''
-        items.append(    {    'label':convertHTMLCodes(title),
-                            'path':plugin.url_for('showShow',url=url),
-                            'icon':icon,
-                            'properties':{'fanart_image':fanart},
-                        }
-        )
-    items.sort(key=lambda x: x['label'])
-    return items
-
-def getVlogVideos(html):
-    try:
-        soup = getSoup(html,default_parser="html.parser")
-        shows = soup.select('.ui-carousel')
-        if not shows: return None
-        items = []
-        for li in shows[0].findAll('li'):
-            url = li.a.get('href','')
-            icon = li.img.get('src','')
-            fanart = createFanart(icon,url)
-            title = li.h2.string
-            ep = extractEpisode(title,icon)
-            items.append(    {    'label':convertHTMLCodes(title),
-                                'path':plugin.url_for('showVideoURL',url=url),
-                                'icon':icon,
-                                'properties':{'fanart_image':fanart},
-                                'info':{'Episode':ep},
-                                'is_playable': True
-                            }
-            )
-        plugin.set_content('episodes')
-        return items
-    except:
-        ERROR('getVlogVideos()')
-        return None
-
-@plugin.route('/season/<url>')
-def showSeason(url):
-    if not url: return False
-    section,url = url.split(':',1)
-    html = getCachedHTML('show',url)
-    if not html:
-        html = getPage(url)
-        cacheHTML('show', url, html)
-    results = re.finditer("(?is)<li class='episode-item-(?P<section>[^']+)'>\s+?<a href='(?P<url>[^']+)'.+?<img src=\"(?P<thumb>[^\"]*)\".+?<h2>(?P<title>[^<]+)</h2>.+?</li>",html)
-    try:
-        fanart = 'http://www.geekandsundry.com' + re.search('<div id="show-banner"[^>]*url\(\'(?P<url>[^\']*)\'',html).group(1)
-        fanart = createFanart(fanart,url)
-    except:
-        fanart = ''
-    items = []
-    for i in results:
-        idict = i.groupdict()
-        currSection = idict.get('section','')
-        if currSection == section:
-            ep = extractEpisode(idict.get('title',''),idict.get('thumb',''))
-            items.append(    {  'label':convertHTMLCodes(idict.get('title','')),
-                                'path':plugin.url_for('showVideoURL',url=urlparse.urljoin(url,idict.get('url',''))),
-                                'icon':idict.get('thumb',''),
-                                'properties':{'fanart_image':fanart},
-                                'info':{'Episode':ep},
-                                'is_playable': True
-                            }
-            )
-    plugin.set_content('episodes')
     return items
 
 @plugin.route('/show/<url>')
@@ -211,12 +157,7 @@ def showShow(url):
             lastPage = int(pages[-1].string)
         except:
             pass
-    if 'vlogger' in url: return getVlogVideos(html)
-#    try:
-#        fanart = urlparse.urljoin('http://www.geekandsundry.com',re.search('<div id="show-banner"[^>]*url\(\'(?P<url>[^\']*)\'',html).group(1))
-#        fanart = createFanart(fanart,url)
-#    except:
-#        fanart = ''
+
     items = []
     for page in range(1,lastPage+1):
         if not soup:
@@ -291,8 +232,9 @@ def showVideoURL(url):
         vidScript = vidDiv.script
         if vidScript and vidScript.get('src'):
             ID = vidDiv.video.get('data-video-id')
+            player = vidDiv.video.get('data-player')
             src = 'http:' + vidScript.get('src')
-            return showBrightcoveVideo(ID,src)
+            return showBrightcoveVideo(ID,player,src)
     except IndexError:
         pass
 
@@ -304,10 +246,10 @@ def showVideoURL(url):
 
 @plugin.route('/play/<ID>')
 def showVideo(ID):
-    url = 'plugin://plugin.video.youtube/?path=/root/video&action=play_video&videoid=' + ID
+    url = 'plugin://plugin.video.youtube/play/?video_id={0}'.format(ID)
     plugin.set_resolved_url({'path':url,'info':{'type':'Video'}})
 
-def showBrightcoveVideo(ID,src):
+def showBrightcoveVideo(ID,player,src):
     script = getPage(src)
     baseURLMatch = re.search('baseUrl:"([^"]*)"',script)
     accountID = re.search('accountId:"([^"]*)"',script).group(1)
@@ -333,12 +275,13 @@ def showBrightcoveVideo(ID,src):
             url = source['src']
             maxHeight = source['height']
     if not url: return
-    if 'uds.ak.o' in url: url = alt
+    print alt
+    if alt: url = alt
     #rtmp://[wowza-ip-address]:[port]/[application]/[appInstance]/[prefix]:[path1]/[path2]/[streamName]
 
+    referer = 'http://players.brightcove.net/{account}/{player}_default/index.html?videoId={videoid}'.format(account=accountID,player=player,videoid=ID)
 
-
-    url += '|User-Agent={0}'.format(urllib.quote(USER_AGENT))
+    url += '|User-Agent={0}&Referer={1}&Origin={2}'.format(urllib.quote(USER_AGENT_MOBILE),urllib.quote(referer),urllib.quote('http://players.brightcove.net'))
     plugin.set_resolved_url({'path':url,'info':{'type':'Video'}})
 
 def hasPIL():
@@ -350,37 +293,30 @@ def hasPIL():
 
 def createFanart(url,page_url):
     if not hasPIL(): return url
-    if '/vlogger/' in page_url or '/vlogs/' in page_url:
-        outname = page_url.rsplit('/',1)[-1]
-    else:
-        outname = page_url.rsplit('/',1)[-1] + '.png'
+
+    outname = page_url.rstrip('/').rsplit('/',1)[-1] + '.png'
 
     outfile = os.path.join(FANART_PATH,outname)
     if os.path.exists(outfile): return outfile
     if not url: return ''
-    workfile = os.path.join(CACHE_PATH,'work.gif')
-    urllib.urlretrieve(url, workfile)
-    if '/vlogger/' in page_url or '/vlogs/' in page_url:
-        try:
-            img = tileImage(640,360,workfile)
-            img.save(outfile,'PNG')
-            return outfile
-        except ImportError:
-            pass
-        except:
-            ERROR('')
-        return url
+    workfile = os.path.join(CACHE_PATH,'work.png')
+#    urllib.urlretrieve(url, workfile)
+    response = requests.get(url, stream=True, headers=HEADERS)
+    import shutil
+    with open(workfile, 'wb') as f:
+        shutil.copyfileobj(response.raw, f)
+    del response
 
     try:
-        from PIL import Image,ImageOps # @UnresolvedImport
-        img = Image.open(workfile).convert('RGB')
-        h = img.histogram()
-        rgb = tuple([b.index(max(b)) for b in [ h[i*256:(i+1)*256] for i in range(3) ]])
-        if img.size[0] == 60:
-            img2 = ImageOps.expand(img,border=(580,150),fill=rgb)
-        else:
-            img2 = ImageOps.expand(img,border=(0,120),fill=rgb)
-        img2.save(outfile,'PNG')
+        from PIL import Image # @UnresolvedImport
+        image=Image.open(workfile)
+        non_transparent=Image.new('RGBA',image.size,(255,255,255,255))
+        try:
+            non_transparent.paste(image,None,mask=image)
+        except ValueError:
+            image.save(outfile,'PNG')
+            return outfile
+        non_transparent.save(outfile,'PNG')
         return outfile
     except ImportError:
         pass
