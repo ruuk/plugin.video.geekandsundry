@@ -229,7 +229,12 @@ def showVideoURL(url):
     try:
         soup = getSoup(html)
         vidDiv = soup.select('div.video-wrapper')[0]
-        vidScript = vidDiv.script
+    
+        # Get all the script tagss in this wrapper and check for the one which has the brightcove player script
+        scripts = vidDiv.select("script")
+        checkForBrightcovePlayer = lambda script: script.get("src") and script.get("src").startswith("//players.brightcove.net")
+        vidScript = filter(checkForBrightcovePlayer, scripts)[0]
+    
         if vidScript and vidScript.get('src'):
             ID = vidDiv.video.get('data-video-id')
             player = vidDiv.video.get('data-player')
