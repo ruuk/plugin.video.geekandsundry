@@ -246,7 +246,7 @@ def showVideoURL(url):
     try:
         ID = re.search('(?is)<iframe.+?src="[^"]+?embed/(?P<id>[^/"]+)".+?</iframe>',html).group(1)
     except:
-        ID = re.search('href="http://youtu.be/(?P<id>\w+)"',html).group(1)
+        ID = re.search('href="http://youtu.be/(?P<id>[^"]+)"',html).group(1)
     showVideo(ID)
 
 @plugin.route('/play/<ID>')
