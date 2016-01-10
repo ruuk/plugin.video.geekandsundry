@@ -87,7 +87,7 @@ def getShowIcon(url):
     with open(outfile,'w') as f: f.write(final)
     return final, createFanart(final,url)
 
-@plugin.route('/all/')
+@plugin.cached_route('/all/')
 def showAllShows():
     url = 'http://geekandsundry.com/shows/'
     try:
@@ -139,7 +139,7 @@ def showAllShows():
     plugin.set_content('tvshows')
     return items
 
-@plugin.route('/show/<url>')
+@plugin.cached_route('/show/<url>')
 def showShow(url):
     if not url: return False
     html = getPage(url)
@@ -184,7 +184,7 @@ def showShow(url):
     plugin.set_content('episodes')
     return items
 
-@plugin.route('/newest/')
+@plugin.cached_route('/newest/')
 def showNewest():
     items = []
     url = 'http://www.youtube.com/user/geekandsundry/videos'
