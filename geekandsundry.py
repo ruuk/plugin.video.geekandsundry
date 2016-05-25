@@ -24,7 +24,7 @@ HEADERS = {'User-Agent':USER_AGENT}
 def ERROR(msg):
     plugin.log.error('ERROR: {0}'.format(msg))
     import traceback
-    traceback.print_exc()
+    plugin.log(traceback.format_exc())
 
 charCodeFilter = re.compile('&#(\d{1,5});',re.I)
 charNameFilter = re.compile('&(\w+?);')
@@ -125,7 +125,12 @@ def showAllShows():
         d.create('Loading shows','Initializing...')
     total = len(anchors)
     for i, a in enumerate(anchors):
-        title = convertHTMLCodes(a.string)
+        try:
+            title = convertHTMLCodes(a.findAll(text=True)[0])
+        except:
+            ERROR('Failed to get show title')
+            continue
+
         surl = a.get('href')
         if first:
             if d.iscanceled(): break
@@ -229,15 +234,21 @@ def showVideoURL(url):
         soup = getSoup(html)
         vidDiv = soup.select('div.video-wrapper')[0]
 
-        # Get all the script tagss in this wrapper and check for the one which has the brightcove player script
-        scripts = vidDiv.select("script")
+        # Get all the script and iframe tags in this wrapper and check for the one which has the brightcove player script
+        scripts = vidDiv.find_all(['script', 'iframe'])
         checkForBrightcovePlayer = lambda script: script.get("src") and script.get("src").startswith("//players.brightcove.net")
         vidScript = filter(checkForBrightcovePlayer, scripts)[0]
 
         if vidScript and vidScript.get('src'):
-            ID = vidDiv.video.get('data-video-id')
-            player = vidDiv.video.get('data-player')
             src = 'http:' + vidScript.get('src')
+
+            if vidScript.name == 'iframe':
+                ID = re.search("videoId=([^&']+)", src).group(1)
+                player = ''
+            else:
+                ID = vidDiv.video.get('data-video-id')
+                player = vidDiv.video.get('data-player')
+
             return showBrightcoveVideo(ID,player,src)
     except IndexError:
         pass
@@ -279,7 +290,7 @@ def showBrightcoveVideo(ID,player,src):
             url = source['src']
             maxHeight = source['height']
     if not url: return
-    print alt
+
     if alt: url = alt
     #rtmp://[wowza-ip-address]:[port]/[application]/[appInstance]/[prefix]:[path1]/[path2]/[streamName]
 
