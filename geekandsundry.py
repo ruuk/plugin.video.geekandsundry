@@ -40,6 +40,7 @@ def convertHTMLCodes(html):
         pass
     return html
 
+@plugin.cached()
 def getPage(url,referer='http://geekandsundry.com'):
     headers = HEADERS.copy()
     headers['referer'] = referer
@@ -71,8 +72,7 @@ def getShowIcon(url):
         with open(outfile,'r') as f: return f.read(), os.path.join(FANART_PATH,outname)
 
     default = 'http://geekandsundry.com/wp-content/themes/Geek_and_Sundry/img/fallbacks/646x538.jpg'
-    html = getCachedHTML('show',url)
-    if not html: html = getPage(url)
+    html = getPage(url)
     soup = getSoup(html)
     iconDiv = soup.select('div.archive-image')
     if not iconDiv: return default, default
@@ -87,19 +87,16 @@ def getShowIcon(url):
     with open(outfile,'w') as f: f.write(final)
     return final, createFanart(final,url)
 
-@plugin.route('/all/')
+@plugin.cached_route('/all/')
 def showAllShows():
     url = 'http://geekandsundry.com/shows/'
-    html = getCachedHTML('main',url)
-    if not html:
-        try:
-            html = getPage(url)
-            cacheHTML('main', url, html)
-        except:
-            ERROR('Failed getting main page')
-            xbmc.executebuiltin('Notification(%s,%s,%s,%s)' % ('Geek & Sundry',T(32101),3,plugin.addon.getAddonInfo('icon')))  # @UndefinedVariable #For xbmcswift2
-            plugin.set_content('tvshows')
-            return
+    try:
+        html = getPage(url)
+    except:
+        ERROR('Failed getting main page')
+        xbmc.executebuiltin('Notification(%s,%s,%s,%s)' % ('Geek & Sundry',T(32101),3,plugin.addon.getAddonInfo('icon')))  # @UndefinedVariable #For xbmcswift2
+        plugin.set_content('tvshows')
+        return
 
     items = []
 
@@ -142,13 +139,10 @@ def showAllShows():
     plugin.set_content('tvshows')
     return items
 
-@plugin.route('/show/<url>')
+@plugin.cached_route('/show/<url>')
 def showShow(url):
     if not url: return False
-    html = getCachedHTML('show',url)
-    if not html:
-        html = getPage(url)
-        cacheHTML('show', url, html)
+    html = getPage(url)
     soup = getSoup(html)
     pages = soup.select('a.page-numbers')
     lastPage = 1
@@ -162,10 +156,7 @@ def showShow(url):
     for page in range(1,lastPage+1):
         if not soup:
             pageURL = url + 'page/{0}/'.format(page)
-            html = getCachedHTML('show',pageURL)
-            if not html:
-                html = getPage(pageURL,referer=url)
-                cacheHTML('show', pageURL, html)
+            html = getPage(pageURL,referer=url)
             soup = getSoup(html)
 
         for a in soup.select('a.post'):
@@ -193,14 +184,11 @@ def showShow(url):
     plugin.set_content('episodes')
     return items
 
-@plugin.route('/newest/')
+@plugin.cached_route('/newest/')
 def showNewest():
     items = []
     url = 'http://www.youtube.com/user/geekandsundry/videos'
-    html = getCachedHTML('newest',url)
-    if not html:
-        html = getPage(url)
-        cacheHTML('newest', url, html)
+    html = getPage(url)
     soup = getSoup(html)
     results = soup.findAll('h3')
     for i in results:
@@ -367,32 +355,6 @@ def extractEpisode(title,url):
     if not test: test = re.search('[_\.]\d*(\d\d)\.',url)
     if test: return test.group(1)
     return ''
-
-def cacheHTML(prefix,url,html):
-    fname = prefix + '.' + hashlib.md5(url).hexdigest()
-    with open(os.path.join(CACHE_PATH,fname),'w') as f:
-        f.write(str(time.time()) + '\n' + html.encode('utf-8'))
-
-def getCachedHTML(prefix,url):
-    fname = prefix + '.' + hashlib.md5(url).hexdigest()
-    path = os.path.join(CACHE_PATH,fname)
-    if not os.path.exists(path): return None
-    with open(path,'r') as f:
-        data = f.read()
-        try:
-            last, html = data.split('\n',1)
-        except:
-            plugin.log.info('Cached file corrupt!')
-    try:
-        if time.time() - float(last) > 3600:
-            plugin.log.info('Cached file expired. Getting new html...')
-            return None
-    except:
-        plugin.log.info('Failed to process file cache time')
-        return None
-
-    plugin.log.info('Using cached HTML')
-    return html.decode('utf-8')
 
 if __name__ == '__main__':
     plugin.run()
