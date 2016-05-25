@@ -2,6 +2,7 @@ import os, sys, urllib, requests, re, htmlentitydefs, hashlib, time
 if sys.version < '2.7.3': #If crappy html.parser, use internal version. Using internal version on ATV2 crashes as of XBMC 12.2, so that's why we test version
     import HTMLParser #analysis:ignore
 import bs4  # @UnresolvedImport
+import functools
 
 from xbmcswift2 import Plugin, xbmc
 plugin = Plugin()
@@ -39,6 +40,15 @@ def convertHTMLCodes(html):
     except:
         pass
     return html
+
+def content(content_type):
+    def methodWrap(func):
+        @functools.wraps(func)
+        def inner(*args,**kwargs):
+            plugin.set_content(content_type)
+            return func(*args,**kwargs)
+        return inner
+    return methodWrap
 
 @plugin.cached()
 def getPage(url,referer='http://geekandsundry.com'):
@@ -87,7 +97,9 @@ def getShowIcon(url):
     with open(outfile,'w') as f: f.write(final)
     return final, createFanart(final,url)
 
-@plugin.cached_route('/all/')
+@plugin.route('/all/')
+@content('tvshows')
+@plugin.cached()
 def showAllShows():
     url = 'http://geekandsundry.com/shows/'
     try:
@@ -95,7 +107,6 @@ def showAllShows():
     except:
         ERROR('Failed getting main page')
         xbmc.executebuiltin('Notification(%s,%s,%s,%s)' % ('Geek & Sundry',T(32101),3,plugin.addon.getAddonInfo('icon')))  # @UndefinedVariable #For xbmcswift2
-        plugin.set_content('tvshows')
         return
 
     items = []
@@ -136,10 +147,11 @@ def showAllShows():
                         }
         )
 
-    plugin.set_content('tvshows')
     return items
 
-@plugin.cached_route('/show/<url>')
+@plugin.route('/show/<url>')
+@content('episodes')
+@plugin.cached()
 def showShow(url):
     if not url: return False
     html = getPage(url)
@@ -181,7 +193,6 @@ def showShow(url):
             )
 
         soup = None
-    plugin.set_content('episodes')
     return items
 
 @plugin.cached_route('/newest/')
@@ -217,12 +228,12 @@ def showVideoURL(url):
     try:
         soup = getSoup(html)
         vidDiv = soup.select('div.video-wrapper')[0]
-    
+
         # Get all the script tagss in this wrapper and check for the one which has the brightcove player script
         scripts = vidDiv.select("script")
         checkForBrightcovePlayer = lambda script: script.get("src") and script.get("src").startswith("//players.brightcove.net")
         vidScript = filter(checkForBrightcovePlayer, scripts)[0]
-    
+
         if vidScript and vidScript.get('src'):
             ID = vidDiv.video.get('data-video-id')
             player = vidDiv.video.get('data-player')
